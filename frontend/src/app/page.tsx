@@ -22,6 +22,10 @@ export default function Home() {
     if (!alertInput.trim()) return;
     setIsLoading(true);
 
+    // Extract source IP and user from alert text for better context
+    const ipMatch = alertInput.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+    const userMatch = alertInput.match(/(?:user|targeting|account)\s+(\w+)/i);
+
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/investigations`,
@@ -29,8 +33,10 @@ export default function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: "Manual Investigation",
+            title: alertInput.slice(0, 80),
             description: alertInput,
+            source_ip: ipMatch ? ipMatch[0] : undefined,
+            user: userMatch ? userMatch[1] : undefined,
             timerange: "-24h",
           }),
         }

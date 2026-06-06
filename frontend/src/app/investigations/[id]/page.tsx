@@ -100,11 +100,23 @@ export default function InvestigationPage({
   const [investigationId, setInvestigationId] = useState<string>("");
   const [stepCount, setStepCount] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const [startTime] = useState(Date.now());
+  const [elapsed, setElapsed] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     params.then((p) => setInvestigationId(p.id));
   }, [params]);
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (isComplete) return;
+    const timer = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [startTime, isComplete]);
 
   useEffect(() => {
     if (!investigationId) return;
@@ -126,6 +138,9 @@ export default function InvestigationPage({
       }
       if (data.action === "self_correcting") {
         setRetryCount((c) => c + 1);
+      }
+      if (data.type === "status" && data.status === "completed") {
+        setIsComplete(true);
       }
     };
 
@@ -152,6 +167,10 @@ export default function InvestigationPage({
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Clock className="h-3 w-3" />
+              <span className="font-mono">{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span>
+            </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <Database className="h-3 w-3" />
               <span>{stepCount} queries</span>
@@ -256,6 +275,14 @@ export default function InvestigationPage({
 
             {updates.map((update, idx) => (
               <div key={idx} className="animate-fade-in">
+                {/* Status Messages */}
+                {update.type === "status" && update.status === "starting" && (
+                  <div className="flex items-center gap-3 p-4 glass-card border-l-2 border-sky-500/30 bg-sky-500/5">
+                    <div className="h-2 w-2 rounded-full bg-sky-400 animate-pulse" />
+                    <p className="text-sm text-sky-300">{update.message || "Investigation starting..."}</p>
+                  </div>
+                )}
+
                 {/* Phase Dividers */}
                 {update.type === "phase" && (
                   <div className="flex items-center gap-2 py-4">
@@ -379,22 +406,109 @@ export default function InvestigationPage({
                   </div>
                 )}
 
-                {/* Investigation Complete */}
+                {/* Investigation Complete — Full Report Card */}
                 {update.type === "status" && update.status === "completed" && (
-                  <div className="glass-card p-6 border border-green-500/30 bg-green-500/5 text-center mt-4">
-                    <Shield className="h-8 w-8 text-green-400 mx-auto mb-2" />
-                    <p className="text-green-300 font-medium text-lg">
-                      Investigation Complete
-                    </p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      {update.message}
-                    </p>
-                    <div className="flex justify-center gap-4 mt-4 text-xs text-slate-400">
-                      <span>{stepCount} SPL queries executed</span>
-                      <span>•</span>
-                      <span>{retryCount} self-corrections</span>
-                      <span>•</span>
-                      <span>{updates.length} total steps</span>
+                  <div className="mt-6 space-y-4">
+                    <div className="glass-card p-6 border border-green-500/30 bg-green-500/5">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Shield className="h-8 w-8 text-green-400" />
+                        <div>
+                          <p className="text-green-300 font-semibold text-lg">
+                            Investigation Complete
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {stepCount} SPL queries • {retryCount} self-corrections • {updates.length} total steps
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Summary */}
+                      {update.result && (() => {
+                        const r = update.result as Record<string, unknown>;
+                        return (
+                        <div className="space-y-4">
+                          {/* Executive Summary */}
+                          {r.summary ? (
+                            <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                              <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Executive Summary</h4>
+                              <p className="text-sm text-slate-200 leading-relaxed">
+                                {String(r.summary)}
+                              </p>
+                            </div>
+                          ) : null}
+
+                          {/* MITRE ATT&CK Techniques */}
+                          {(r.mitre_techniques as string[])?.length > 0 ? (
+                            <div>
+                              <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">MITRE ATT&CK Techniques</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {(r.mitre_techniques as string[]).map((t: string, i: number) => (
+                                  <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-mono">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Affected Assets & Users */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {(r.affected_assets as string[])?.length > 0 ? (
+                              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Affected Assets</h4>
+                                <div className="space-y-1">
+                                  {(r.affected_assets as string[]).map((a: string, i: number) => (
+                                    <div key={i} className="flex items-center gap-2 text-sm text-slate-200">
+                                      <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                                      <span className="font-mono text-xs">{a}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {(r.affected_users as string[])?.length > 0 ? (
+                              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                                <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Affected Users</h4>
+                                <div className="space-y-1">
+                                  {(r.affected_users as string[]).map((u: string, i: number) => (
+                                    <div key={i} className="flex items-center gap-2 text-sm text-slate-200">
+                                      <div className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                      <span className="font-mono text-xs">{u}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Recommendations */}
+                          {(r.recommendations as string[])?.length > 0 ? (
+                            <div>
+                              <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Recommended Actions</h4>
+                              <div className="space-y-2">
+                                {(r.recommendations as string[]).map((rec: string, i: number) => (
+                                  <div key={i} className="flex items-start gap-2 p-2 bg-slate-800/50 rounded-md border border-slate-700/50">
+                                    <Zap className="h-3.5 w-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                                    <span className="text-sm text-slate-300">{rec}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {update.type === "error" && (
+                  <div className="glass-card p-4 border border-red-500/30 bg-red-500/5">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-5 w-5 text-red-400" />
+                      <p className="text-red-300 text-sm">{update.message}</p>
                     </div>
                   </div>
                 )}
