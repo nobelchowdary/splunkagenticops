@@ -21,18 +21,15 @@ class Settings(BaseSettings):
     splunk_hec_token: str = ""
 
     # LLM
-    llm_provider: str = "anthropic"
     anthropic_api_key: str = ""
-    openai_api_key: str = ""
-    llm_model: str = "claude-sonnet-4-20250514"
+    llm_model: str = "claude-sonnet-4-6"
 
-    # Splunk Hosted Models
+    # Splunk Hosted Models (optional — graceful fallback)
     foundation_sec_endpoint: str = ""
     cisco_dtsm_endpoint: str = ""
 
     # App
     backend_port: int = 8000
-    database_url: str = "sqlite:///./sentinelflow.db"
 
     class Config:
         env_file = "../.env"

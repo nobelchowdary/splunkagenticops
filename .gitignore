@@ -44,6 +44,3 @@ docker-compose.override.yml
 
 # Splunk generated data (regenerate with attack_scenario.py)
 splunk/sample_data/*.json
-
-# Redis
-dump.rdb

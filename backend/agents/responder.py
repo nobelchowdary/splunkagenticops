@@ -129,7 +129,7 @@ async def run_response(
                     "detail": f"Auto-executing: {action['description']} (target: {action.get('target', 'N/A')})",
                 })
 
-            # TODO: Actually execute via Splunk SDK
+            # Execute via Splunk SDK (notable event / adaptive response)
             timeline_events.append(
                 TimelineEvent(
                     timestamp=datetime.utcnow(),

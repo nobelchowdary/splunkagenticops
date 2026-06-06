@@ -12,7 +12,7 @@ An autonomous multi-agent system that acts as a tireless SOC analyst — triagin
 - **Splunk Enterprise 10.x** with Developer License ([download](https://www.splunk.com/en_us/download/splunk-enterprise.html))
 - **Anthropic API Key** for Claude (agent reasoning engine)
 
-### Option 1: Docker Compose (Recommended for Judges)
+### Option 1: Docker Compose (Recommended)
 
 ```bash
 # Clone the repository

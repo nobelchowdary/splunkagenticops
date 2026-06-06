@@ -96,16 +96,17 @@ async def create_investigation(request: InvestigationRequest):
 
 @app.get("/api/investigations/{investigation_id}")
 async def get_investigation(investigation_id: str):
-    """Get the current state of an investigation."""
-    # TODO: Retrieve from database
+    """Get the current state/result of an investigation."""
+    result = manager.get_result(investigation_id)
+    if result:
+        return {"investigation_id": investigation_id, "status": "completed", "result": result}
     return {"investigation_id": investigation_id, "status": "in_progress"}
 
 
 @app.get("/api/investigations")
 async def list_investigations():
-    """List all investigations."""
-    # TODO: Retrieve from database
-    return {"investigations": []}
+    """List all investigations with stored results."""
+    return {"investigations": list(manager.investigation_results.keys())}
 
 
 @app.post("/api/chat")
@@ -114,10 +115,16 @@ async def chat(payload: dict):
     question = payload.get("question", "")
     investigation_id = payload.get("investigation_id")
 
-    # TODO: Route to investigation agent for interactive queries
+    if investigation_id:
+        prior_context = manager.get_result(investigation_id)
+        return {
+            "response": f"Use the /followup endpoint for investigation-scoped queries.",
+            "investigation_id": investigation_id,
+        }
+
     return {
-        "response": f"Processing question: {question}",
-        "investigation_id": investigation_id,
+        "response": f"Please start an investigation first, then use follow-up queries.",
+        "investigation_id": None,
     }
 
 
