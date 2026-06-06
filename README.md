@@ -113,7 +113,7 @@ sentinelflow/
 
 ## Demo Video
 
-[Watch the 3-minute demo →](https://youtube.com/YOUR_VIDEO) *(link updated upon submission)*
+[Watch the 3-minute demo →](https://youtu.be/FiN4uzfNkJM)
 
 **Scenario demonstrated**: A multi-stage attack (brute force → credential compromise → lateral movement → data exfiltration) is autonomously investigated by SentinelFlow's 5 AI agents in real-time, with full transparency into every SPL query, reasoning step, and finding.
 
