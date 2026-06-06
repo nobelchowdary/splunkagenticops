@@ -579,7 +579,7 @@ export default function InvestigationPage({
                         </div>
 
                         {/* Main Detail */}
-                        <p className="text-sm text-slate-300">{update.detail}</p>
+                        <p className="text-sm text-slate-300 whitespace-pre-wrap">{update.detail}</p>
 
                         {/* Reasoning — The key "Show Don't Tell" element */}
                         {update.reasoning && (
@@ -677,15 +677,27 @@ export default function InvestigationPage({
                       {/* Summary */}
                       {update.result && (() => {
                         const r = update.result as Record<string, unknown>;
+                        const summary = r.executive_summary || r.summary;
                         return (
                         <div className="space-y-4">
                           {/* Executive Summary */}
-                          {r.summary ? (
+                          {summary ? (
                             <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
                               <h4 className="text-xs font-semibold text-slate-400 uppercase mb-2">Executive Summary</h4>
-                              <p className="text-sm text-slate-200 leading-relaxed">
-                                {String(r.summary)}
-                              </p>
+                              <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap space-y-2">
+                                {String(summary).split('\n').map((line: string, i: number) => {
+                                  const trimmed = line.trim();
+                                  if (!trimmed) return <div key={i} className="h-2" />;
+                                  if (trimmed.startsWith('### ')) return <h3 key={i} className="text-base font-semibold text-white mt-3 mb-1">{trimmed.replace('### ', '').replace(/[#]/g, '')}</h3>;
+                                  if (trimmed.startsWith('## ')) return <h2 key={i} className="text-lg font-bold text-white mt-4 mb-1">{trimmed.replace('## ', '').replace(/[#]/g, '')}</h2>;
+                                  if (trimmed.startsWith('**') && trimmed.endsWith('**')) return <p key={i} className="font-semibold text-slate-100 mt-2">{trimmed.replace(/\*\*/g, '')}</p>;
+                                  if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) return <li key={i} className="ml-4 text-slate-300 list-disc">{trimmed.replace(/^[-•]\s*/, '').replace(/\*\*/g, '')}</li>;
+                                  if (/^\d+\.\s/.test(trimmed)) return <li key={i} className="ml-4 text-slate-300 list-decimal">{trimmed.replace(/^\d+\.\s*/, '').replace(/\*\*/g, '')}</li>;
+                                  if (trimmed.startsWith('|') && trimmed.endsWith('|')) return <p key={i} className="font-mono text-xs text-slate-400">{trimmed}</p>;
+                                  if (trimmed.startsWith('---')) return <hr key={i} className="border-slate-700 my-2" />;
+                                  return <p key={i} className="text-slate-200">{trimmed}</p>;
+                                })}
+                              </div>
                             </div>
                           ) : null}
 

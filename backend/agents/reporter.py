@@ -105,7 +105,7 @@ async def generate_report(
     )
 
     if investigation_result.get("summary"):
-        executive_summary += f"\n\nKey Finding: {investigation_result['summary']}"
+        executive_summary += f"\n\n{investigation_result['summary']}"
 
     # Build report
     report = {
