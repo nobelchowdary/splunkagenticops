@@ -367,7 +367,7 @@ Fix the query using ONLY the indexes and fields from the schema. Output ONLY the
 class InvestigationAgent:
     """Wrapper class for follow-up interactive investigations."""
 
-    async def investigate_followup(self, query: str, callback: Optional[Callable] = None) -> Dict[str, Any]:
+    async def investigate_followup(self, query: str, callback: Optional[Callable] = None, prior_context: Optional[Dict] = None) -> Dict[str, Any]:
         """Run a follow-up investigation query using the same agent logic."""
         settings = get_settings()
         llm = ChatAnthropic(
@@ -379,7 +379,8 @@ class InvestigationAgent:
         schema_discovery = get_schema_discovery()
 
         # Discover schema
-        schema_context = await schema_discovery.get_schema_context()
+        schema = await schema_discovery.discover_schema()
+        schema_context = schema_discovery.get_schema_prompt(schema)
         if callback:
             await callback({
                 "type": "agent_action",
@@ -388,16 +389,35 @@ class InvestigationAgent:
                 "detail": "Schema context loaded for follow-up query",
             })
 
+        # Build context from prior investigation results
+        prior_summary = ""
+        if prior_context:
+            prior_summary = f"""
+### PRIOR INVESTIGATION RESULTS (use this to answer contextual questions):
+- Summary: {prior_context.get('summary', 'N/A')}
+- MITRE Techniques Found: {', '.join(prior_context.get('mitre_techniques', []))}
+- Affected Assets: {', '.join(prior_context.get('affected_assets', []))}
+- Affected Users: {', '.join(prior_context.get('affected_users', []))}
+- Recommendations: {', '.join(prior_context.get('recommendations', []))}
+- Findings: {json.dumps(prior_context.get('findings', [])[:5], default=str)}
+"""
+
         # Generate SPL from the follow-up question
         system_prompt = build_investigation_prompt(schema_context)
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=f"""The analyst has a follow-up question about a previous investigation:
+{prior_summary}
 
-"{query}"
+Analyst's question: "{query}"
 
-Generate an SPL query to answer this question. Output JSON with:
-{{"action": "search", "spl": "<your SPL query>", "reasoning": "<why this query>"}}"""),
+If the question can be answered from the prior investigation results above, respond with:
+{{"action": "answer", "answer": "<your detailed answer based on prior findings>", "reasoning": "<why>"}}
+
+If the question requires a NEW Splunk query, respond with:
+{{"action": "search", "spl": "<your SPL query>", "reasoning": "<why this query>"}}
+
+Output ONLY valid JSON."""),
         ]
 
         response = await llm.ainvoke(messages)
@@ -411,8 +431,28 @@ Generate an SPL query to answer this question. Output JSON with:
                 json_str = json_str.split("```")[1].replace("json", "").strip()
             parsed = json.loads(json_str)
 
-            spl_query = parsed.get("spl", "")
+            action = parsed.get("action", "search")
             reasoning = parsed.get("reasoning", "")
+
+            # If the LLM can answer from context, no need for a Splunk query
+            if action == "answer":
+                answer = parsed.get("answer", "")
+                if callback:
+                    await callback({
+                        "type": "agent_action",
+                        "agent": "investigation",
+                        "action": "results",
+                        "detail": answer,
+                        "reasoning": reasoning,
+                    })
+                return {
+                    "query": query,
+                    "summary": answer,
+                    "mitre_techniques": prior_context.get("mitre_techniques", []) if prior_context else [],
+                }
+
+            # Otherwise execute the SPL query
+            spl_query = parsed.get("spl", "")
 
             if callback:
                 await callback({

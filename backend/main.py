@@ -16,6 +16,7 @@ from models import InvestigationRequest, InvestigationState
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
+        self.investigation_results: Dict[str, dict] = {}  # Store results per investigation
 
     async def connect(self, websocket: WebSocket, investigation_id: str):
         await websocket.accept()
@@ -28,6 +29,12 @@ class ConnectionManager:
         ws = self.active_connections.get(investigation_id)
         if ws:
             await ws.send_json(data)
+
+    def store_result(self, investigation_id: str, result: dict):
+        self.investigation_results[investigation_id] = result
+
+    def get_result(self, investigation_id: str) -> dict:
+        return self.investigation_results.get(investigation_id, {})
 
 
 manager = ConnectionManager()
@@ -118,13 +125,14 @@ async def chat(payload: dict):
 async def followup_investigation(investigation_id: str, payload: dict):
     """Send a follow-up question to an existing investigation."""
     query = payload.get("query", "")
+    prior_context = manager.get_result(investigation_id)
 
     async def send_update(update: dict):
         await manager.send_update(investigation_id, update)
 
     # Run follow-up query in background
     asyncio.create_task(
-        _run_followup_with_updates(investigation_id, query, send_update)
+        _run_followup_with_updates(investigation_id, query, send_update, prior_context)
     )
 
     return {
@@ -170,6 +178,9 @@ async def _run_investigation_with_updates(investigation: InvestigationState):
             json.dumps(result, default=str)
         )
 
+        # Store result for follow-up queries
+        manager.store_result(investigation.id, serializable_result)
+
         await send_update({
             "type": "status",
             "status": "completed",
@@ -184,7 +195,7 @@ async def _run_investigation_with_updates(investigation: InvestigationState):
         })
 
 
-async def _run_followup_with_updates(investigation_id: str, query: str, send_update):
+async def _run_followup_with_updates(investigation_id: str, query: str, send_update, prior_context: dict):
     """Run a follow-up investigation query and stream results."""
     from agents.investigator import InvestigationAgent
 
@@ -196,7 +207,7 @@ async def _run_followup_with_updates(investigation_id: str, query: str, send_upd
         })
 
         agent = InvestigationAgent()
-        result = await agent.investigate_followup(query, callback=send_update)
+        result = await agent.investigate_followup(query, callback=send_update, prior_context=prior_context)
 
         serializable_result = json.loads(json.dumps(result, default=str))
 
