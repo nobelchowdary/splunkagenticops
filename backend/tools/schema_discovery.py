@@ -91,7 +91,7 @@ class SplunkSchemaDiscovery:
 
     async def _get_fields(self) -> Dict[str, List[str]]:
         """Get key fields per sourcetype."""
-        # For hackathon speed, return known field mappings
+        # For speed, return known field mappings
         # In production, you'd query: | fieldsummary | where count > 10
         return {
             "WinEventLog:Security": [

@@ -1,6 +1,6 @@
 """Orchestrator — LangGraph state machine coordinating all agents.
 
-Design philosophy (per hackathon risk mitigation):
+Design philosophy (risk mitigation):
 - Core agents (Triage + Investigation) are required and always run
 - Stretch agents (Anomaly + Response) gracefully degrade with mock data if unavailable
 - All phases stream updates to UI regardless of success/failure

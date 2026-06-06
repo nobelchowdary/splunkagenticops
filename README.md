@@ -1,7 +1,5 @@
 # SentinelFlow — Autonomous AI Security Operations Agent
 
-> **Splunk Agentic Ops Hackathon 2026 — Security Track**
-
 An autonomous multi-agent system that acts as a tireless SOC analyst — triaging alerts, investigating incidents, detecting anomalies, and recommending responses using Splunk's AI capabilities. Turns 45 minutes of manual investigation into 60 seconds of autonomous, explainable AI-driven analysis.
 
 ## Quick Start
