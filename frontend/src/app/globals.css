@@ -51,3 +51,64 @@ body {
   animation: blink 1s infinite;
   color: var(--accent);
 }
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Slide up animation */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Pulse slow */
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-slow {
+  animation: pulseSlow 2s ease-in-out infinite;
+}
+
+/* Counter roll animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-count-up {
+  animation: countUp 0.6s ease-out;
+}
+
+/* Gradient border glow */
+.glow-border {
+  box-shadow: 0 0 15px rgba(14, 165, 233, 0.15), 0 0 30px rgba(14, 165, 233, 0.05);
+}
+
+/* MITRE grid cell hover */
+.mitre-cell {
+  transition: all 0.2s ease;
+}
+.mitre-cell:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+/* Timeline connector */
+.timeline-connector::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 24px;
+  bottom: -8px;
+  width: 2px;
+  background: linear-gradient(to bottom, #3b82f6, transparent);
+}

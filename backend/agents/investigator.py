@@ -362,3 +362,95 @@ Fix the query using ONLY the indexes and fields from the schema. Output ONLY the
         "recommendations": ["Manual review recommended — investigation depth exceeded"],
         "steps_taken": max_steps,
     }
+
+
+class InvestigationAgent:
+    """Wrapper class for follow-up interactive investigations."""
+
+    async def investigate_followup(self, query: str, callback: Optional[Callable] = None) -> Dict[str, Any]:
+        """Run a follow-up investigation query using the same agent logic."""
+        settings = get_settings()
+        llm = ChatAnthropic(
+            model=settings.llm_model,
+            api_key=settings.anthropic_api_key,
+            max_tokens=4096,
+        )
+        mcp = get_mcp_client()
+        schema_discovery = get_schema_discovery()
+
+        # Discover schema
+        schema_context = await schema_discovery.get_schema_context()
+        if callback:
+            await callback({
+                "type": "agent_action",
+                "agent": "investigation",
+                "action": "schema_loaded",
+                "detail": "Schema context loaded for follow-up query",
+            })
+
+        # Generate SPL from the follow-up question
+        system_prompt = build_investigation_prompt(schema_context)
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"""The analyst has a follow-up question about a previous investigation:
+
+"{query}"
+
+Generate an SPL query to answer this question. Output JSON with:
+{{"action": "search", "spl": "<your SPL query>", "reasoning": "<why this query>"}}"""),
+        ]
+
+        response = await llm.ainvoke(messages)
+        response_text = response.content if hasattr(response, 'content') else str(response)
+
+        # Parse and execute
+        try:
+            # Extract JSON from response
+            json_str = response_text
+            if "```" in json_str:
+                json_str = json_str.split("```")[1].replace("json", "").strip()
+            parsed = json.loads(json_str)
+
+            spl_query = parsed.get("spl", "")
+            reasoning = parsed.get("reasoning", "")
+
+            if callback:
+                await callback({
+                    "type": "agent_action",
+                    "agent": "investigation",
+                    "action": "querying",
+                    "detail": f"Follow-up: {reasoning}",
+                    "spl_query": spl_query,
+                    "reasoning": reasoning,
+                })
+
+            # Execute query
+            result = await mcp.search(spl_query)
+            results = result.get("results", [])
+
+            if callback:
+                await callback({
+                    "type": "agent_action",
+                    "agent": "investigation",
+                    "action": "results",
+                    "detail": f"Follow-up query returned {len(results)} results",
+                    "result_count": len(results),
+                    "raw_results": results[:10],
+                })
+
+            return {
+                "query": query,
+                "spl": spl_query,
+                "results": results[:20],
+                "summary": f"Follow-up query returned {len(results)} results for: {query}",
+            }
+
+        except (json.JSONDecodeError, KeyError) as e:
+            if callback:
+                await callback({
+                    "type": "agent_action",
+                    "agent": "investigation",
+                    "action": "results",
+                    "detail": f"Follow-up processed: {query}",
+                })
+            return {"query": query, "summary": str(response_text)}

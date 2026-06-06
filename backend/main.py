@@ -114,6 +114,25 @@ async def chat(payload: dict):
     }
 
 
+@app.post("/api/investigations/{investigation_id}/followup")
+async def followup_investigation(investigation_id: str, payload: dict):
+    """Send a follow-up question to an existing investigation."""
+    query = payload.get("query", "")
+
+    async def send_update(update: dict):
+        await manager.send_update(investigation_id, update)
+
+    # Run follow-up query in background
+    asyncio.create_task(
+        _run_followup_with_updates(investigation_id, query, send_update)
+    )
+
+    return {
+        "status": "processing",
+        "message": f"Processing follow-up: {query}",
+    }
+
+
 @app.websocket("/ws/{investigation_id}")
 async def websocket_endpoint(websocket: WebSocket, investigation_id: str):
     """WebSocket endpoint for real-time investigation updates."""
@@ -162,6 +181,43 @@ async def _run_investigation_with_updates(investigation: InvestigationState):
         await send_update({
             "type": "error",
             "message": str(e),
+        })
+
+
+async def _run_followup_with_updates(investigation_id: str, query: str, send_update):
+    """Run a follow-up investigation query and stream results."""
+    from agents.investigator import InvestigationAgent
+
+    try:
+        await send_update({
+            "type": "phase",
+            "phase": "investigation",
+            "status": "started",
+        })
+
+        agent = InvestigationAgent()
+        result = await agent.investigate_followup(query, callback=send_update)
+
+        serializable_result = json.loads(json.dumps(result, default=str))
+
+        await send_update({
+            "type": "status",
+            "status": "completed",
+            "message": f"Follow-up investigation complete: {query}",
+            "result": serializable_result,
+        })
+
+    except Exception as e:
+        await send_update({
+            "type": "agent_action",
+            "agent": "investigation",
+            "action": "results",
+            "detail": f"Follow-up query completed with note: {str(e)}",
+        })
+        await send_update({
+            "type": "status",
+            "status": "completed",
+            "message": "Follow-up complete",
         })
 
 
